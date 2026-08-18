@@ -20,6 +20,15 @@ let processor = null;
 let source = null;
 let pcmData = [];
 
+function getDeviceId() {
+    let id = localStorage.getItem('koda_device_id');
+    if (!id) {
+        id = 'dev_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+        localStorage.setItem('koda_device_id', id);
+    }
+    return id;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initChips();
     setupEventListeners();
@@ -29,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let hasExistingVoice = false;
 
 function loadExistingProfile() {
-    fetch('/api/profile')
+    fetch('/api/profile?device_id=' + getDeviceId())
         .then(res => {
             if (res.ok) return res.json();
             throw new Error('No profile');
@@ -439,9 +448,12 @@ async function submitProfile() {
         btn.disabled = true;
 
         // Step 1: Save profile data
-        const profileRes = await fetch('/api/profile', {
+        const profileRes = await fetch('/api/profile?device_id=' + getDeviceId(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Device-Id': getDeviceId()
+            },
             body: JSON.stringify(data)
         });
 
@@ -453,9 +465,12 @@ async function submitProfile() {
         // Step 2: Enroll voice biometric ONLY if a new recording was made
         if (voiceRecording) {
             const voiceBuffer = voiceRecording.buffer;
-            const voiceRes = await fetch('/api/voice-enroll', {
+            const voiceRes = await fetch('/api/voice-enroll?device_id=' + getDeviceId(), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/octet-stream' },
+                headers: { 
+                    'Content-Type': 'application/octet-stream',
+                    'X-Device-Id': getDeviceId()
+                },
                 body: voiceBuffer
             });
 

@@ -229,6 +229,9 @@ async def fetch_cartesia_tts(text: str) -> bytes | None:
 # =====================================================================
 # HTTP Routes
 # =====================================================================
+def get_device_id_from_request(request: Request) -> str:
+    return request.headers.get("X-Device-Id") or request.query_params.get("device_id") or "default"
+
 @app.get("/")
 async def get_index():
     return FileResponse("static/index.html")
@@ -238,8 +241,9 @@ async def get_register():
     return FileResponse("registration/index.html")
 
 @app.get("/api/profile")
-async def get_profile():
-    profile = profile_manager.load_profile()
+async def get_profile(request: Request):
+    device_id = get_device_id_from_request(request)
+    profile = profile_manager.load_profile(device_id)
     if not profile:
         return JSONResponse({"exists": False}, status_code=404)
     safe_profile = {k: v for k, v in profile.items() if k != "voice_embedding"}
@@ -250,8 +254,9 @@ async def get_profile():
 @app.post("/api/profile")
 async def create_profile(request: Request):
     try:
+        device_id = get_device_id_from_request(request)
         data = await request.json()
-        profile = profile_manager.load_profile() or {}
+        profile = profile_manager.load_profile(device_id) or {}
 
         profile["id"] = profile.get("id", str(uuid.uuid4()))
         profile["created_at"] = profile.get("created_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -289,8 +294,8 @@ async def create_profile(request: Request):
         if "voice_embedding" not in profile:
             profile["voice_embedding"] = None
 
-        profile_manager.save_profile(profile)
-        logger.info(f"✅ Profile saved for: {profile['personal']['name']}")
+        profile_manager.save_profile(profile, device_id)
+        logger.info(f"✅ Profile saved for: {profile['personal']['name']} (device: {device_id})")
         return JSONResponse({"status": "ok", "id": profile["id"]})
 
     except Exception as e:
@@ -300,6 +305,7 @@ async def create_profile(request: Request):
 @app.post("/api/voice-enroll")
 async def voice_enroll(request: Request):
     try:
+        device_id = get_device_id_from_request(request)
         pcm_bytes = await request.body()
         if len(pcm_bytes) < 16000 * 2 * 1:
             return JSONResponse({"error": "Audio too short. Need at least 1 second."}, status_code=400)
@@ -308,25 +314,28 @@ async def voice_enroll(request: Request):
         if not embedding:
             return JSONResponse({"error": "Could not create voice embedding."}, status_code=400)
 
-        profile = profile_manager.load_profile()
+        profile = profile_manager.load_profile(device_id)
         if not profile:
             return JSONResponse({"error": "No profile found."}, status_code=404)
 
         profile["voice_embedding"] = embedding
-        profile_manager.save_profile(profile)
+        profile_manager.save_profile(profile, device_id)
+        logger.info(f"✅ Voice enrolled for device: {device_id}")
         return JSONResponse({"status": "ok", "embedding_size": len(embedding)})
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.delete("/api/profile")
-async def delete_profile_endpoint():
-    deleted = profile_manager.delete_profile()
+async def delete_profile_endpoint(request: Request):
+    device_id = get_device_id_from_request(request)
+    deleted = profile_manager.delete_profile(device_id)
     return JSONResponse({"deleted": deleted})
 
 @app.get("/api/has-profile")
-async def has_profile():
-    return JSONResponse({"exists": profile_manager.has_profile()})
+async def has_profile(request: Request):
+    device_id = get_device_id_from_request(request)
+    return JSONResponse({"exists": profile_manager.has_profile(device_id)})
 
 
 # =====================================================================
@@ -335,7 +344,8 @@ async def has_profile():
 AUDIO_BUFFER_SIZE = 16000 * 2 * 3
 
 class SessionState:
-    def __init__(self):
+    def __init__(self, device_id: str = "default"):
+        self.device_id = device_id
         self.mode = "WAKING"
         self.last_active_time = time.time()
         self.system_prompt = DEFAULT_SYSTEM_PROMPT
@@ -346,10 +356,11 @@ class SessionState:
 @app.websocket("/ws/conversation")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    session_state = SessionState()
+    device_id = websocket.query_params.get("device_id", "default")
+    session_state = SessionState(device_id=device_id)
     conversation_memory.clear()
 
-    profile = profile_manager.load_profile()
+    profile = profile_manager.load_profile(device_id)
     if profile:
         session_state.system_prompt = profile_manager.build_system_prompt(profile)
 
@@ -364,8 +375,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 msg_type = data.get("type")
 
                 if msg_type == "start":
-                    session_state = SessionState()
+                    req_device_id = data.get("device_id", device_id)
+                    session_state = SessionState(device_id=req_device_id)
                     conversation_memory.clear()
+                    profile = profile_manager.load_profile(req_device_id)
                     if profile:
                         session_state.system_prompt = profile_manager.build_system_prompt(profile)
                     await websocket.send_json({"type": "status", "state": "waking"})
@@ -413,10 +426,10 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket Error: {e}")
 
 
-async def verify_voice_bytes(audio_bytes: bytes) -> bool:
-    profile = profile_manager.load_profile()
+async def verify_voice_bytes(audio_bytes: bytes, device_id: str = "default") -> bool:
+    profile = profile_manager.load_profile(device_id)
     if not profile or not profile.get("voice_embedding"):
-        logger.warning("No voice profile found for biometric verification.")
+        logger.warning(f"No voice profile found for device '{device_id}'.")
         return False
 
     if len(audio_bytes) < 16000 * 2 * 0.4:
@@ -431,8 +444,8 @@ async def verify_voice_bytes(audio_bytes: bytes) -> bool:
 
 
 async def process_speech_utterance(audio_bytes: bytes, client_ws: WebSocket, session_state: SessionState):
-    # 0. Continuous Biometric Check: ONLY the registered child voice is permitted
-    is_registered_child = await verify_voice_bytes(audio_bytes)
+    # 0. Continuous Biometric Check: ONLY the registered child voice is permitted for this device
+    is_registered_child = await verify_voice_bytes(audio_bytes, device_id=session_state.device_id)
     if not is_registered_child:
         logger.warning("🚫 Continuous Verification Failed: Speaker is NOT the registered child. Ignoring utterance.")
         await client_ws.send_json({"type": "status", "state": "unrecognized"})

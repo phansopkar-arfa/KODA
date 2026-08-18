@@ -39,36 +39,52 @@ def decrypt_data(encrypted: bytes) -> dict:
     decrypted_data = f.decrypt(encrypted)
     return json.loads(decrypted_data.decode('utf-8'))
 
-def save_profile(profile: dict) -> None:
-    """Encrypts and saves to profiles/child_profile.enc."""
+import re
+
+def _get_profile_path(device_id: str = "default") -> str:
+    safe_id = re.sub(r'[^a-zA-Z0-9_-]', '', str(device_id))
+    if not safe_id:
+        safe_id = "default"
+    return os.path.join(PROFILE_DIR, f"profile_{safe_id}.enc")
+
+def save_profile(profile: dict, device_id: str = "default") -> None:
+    """Encrypts and saves to profiles/profile_{device_id}.enc."""
     os.makedirs(PROFILE_DIR, exist_ok=True)
     encrypted = encrypt_data(profile)
-    with open(PROFILE_PATH, 'wb') as f:
+    path = _get_profile_path(device_id)
+    with open(path, 'wb') as f:
         f.write(encrypted)
-    logger.info("Profile saved successfully.")
+    logger.info(f"Profile saved successfully for device: {device_id}")
 
-def load_profile() -> dict | None:
-    """Loads and decrypts the profile, returns None if no profile exists."""
-    if not os.path.exists(PROFILE_PATH):
-        return None
+def load_profile(device_id: str = "default") -> dict | None:
+    """Loads and decrypts the profile for device_id. Falls back to default if device file missing."""
+    path = _get_profile_path(device_id)
+    if not os.path.exists(path):
+        default_path = os.path.join(PROFILE_DIR, "child_profile.enc")
+        if os.path.exists(default_path):
+            path = default_path
+        else:
+            return None
     try:
-        with open(PROFILE_PATH, 'rb') as f:
+        with open(path, 'rb') as f:
             encrypted = f.read()
         return decrypt_data(encrypted)
     except Exception as e:
-        logger.error(f"Failed to load profile: {e}")
+        logger.error(f"Failed to load profile for {device_id}: {e}")
         return None
 
-def delete_profile() -> bool:
-    """Deletes the profile file."""
-    if os.path.exists(PROFILE_PATH):
-        os.remove(PROFILE_PATH)
+def delete_profile(device_id: str = "default") -> bool:
+    """Deletes the profile file for device_id."""
+    path = _get_profile_path(device_id)
+    if os.path.exists(path):
+        os.remove(path)
         return True
     return False
 
-def has_profile() -> bool:
-    """Checks if a profile exists."""
-    return os.path.exists(PROFILE_PATH)
+def has_profile(device_id: str = "default") -> bool:
+    """Checks if a profile exists for device_id."""
+    path = _get_profile_path(device_id)
+    return os.path.exists(path) or os.path.exists(os.path.join(PROFILE_DIR, "child_profile.enc"))
 
 def calculate_age(dob_str: str) -> int:
     """Calculates age from YYYY-MM-DD date string."""

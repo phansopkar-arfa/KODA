@@ -192,11 +192,20 @@ function schedulePlayback() {
     }
 }
 
+function getDeviceId() {
+    let id = localStorage.getItem('koda_device_id');
+    if (!id) {
+        id = 'dev_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+        localStorage.setItem('koda_device_id', id);
+    }
+    return id;
+}
+
 // --- WebSocket ---
 function connectWebSocket() {
     return new Promise((resolve, reject) => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/conversation`;
+        const wsUrl = `${protocol}//${window.location.host}/ws/conversation?device_id=${getDeviceId()}`;
         ws = new WebSocket(wsUrl);
         ws.binaryType = 'arraybuffer';
         ws.onopen = () => resolve();
@@ -251,7 +260,7 @@ async function startSession() {
     try {
         setOrbState('idle', 'Connecting...');
         await connectWebSocket();
-        ws.send(JSON.stringify({ type: 'start' }));
+        ws.send(JSON.stringify({ type: 'start', device_id: getDeviceId() }));
         await startMic();
         isListening = true;
         ui.startBtn.classList.add('hidden');
