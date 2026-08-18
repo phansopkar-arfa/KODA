@@ -377,31 +377,37 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket Error: {e}")
 
 
-async def verify_voice(session_state: SessionState) -> bool:
+async def verify_voice_bytes(audio_bytes: bytes) -> bool:
     profile = profile_manager.load_profile()
     if not profile or not profile.get("voice_embedding"):
-        logger.warning("No voice profile found.")
+        logger.warning("No voice profile found for biometric verification.")
         return False
 
-    audio_bytes = bytes(session_state.audio_buffer)
-    if len(audio_bytes) < 16000 * 2 * 0.5:
-        logger.warning(f"Audio buffer too short for verification: {len(audio_bytes)} bytes")
+    if len(audio_bytes) < 16000 * 2 * 0.4:
+        logger.warning(f"Audio utterance too short for verification: {len(audio_bytes)} bytes")
         return False
 
     is_match, similarity = voice_biometric.verify_speaker(
         audio_bytes, profile["voice_embedding"], threshold=VOICE_THRESHOLD
     )
-    logger.info(f"Voice verification similarity: {similarity:.2f} (Threshold: {VOICE_THRESHOLD}) -> Match: {is_match}")
+    logger.info(f"TitaNet Verification Score: {similarity:.4f} (Threshold: {VOICE_THRESHOLD}) -> Match: {is_match}")
     return is_match
 
 
 async def process_speech_utterance(audio_bytes: bytes, client_ws: WebSocket, session_state: SessionState):
+    # 0. Continuous Biometric Check: ONLY the registered child voice is permitted
+    is_registered_child = await verify_voice_bytes(audio_bytes)
+    if not is_registered_child:
+        logger.warning("🚫 Continuous Verification Failed: Speaker is NOT the registered child. Ignoring utterance.")
+        await client_ws.send_json({"type": "status", "state": "unrecognized"})
+        return
+
     stt_start = time.time()
     await client_ws.send_json({"type": "status", "state": "thinking"})
 
-    # 1. Transcribe audio using Groq Whisper SST
+    # 1. Transcribe audio using Groq Whisper STT
     transcript = await transcribe_speech(audio_bytes)
-    logger.info(f"Transcribed: '{transcript}'")
+    logger.info(f"Transcribed (Child Verified): '{transcript}'")
     if not transcript.strip():
         await client_ws.send_json({"type": "status", "state": "listening" if session_state.mode == "ACTIVE" else "waking"})
         return
@@ -414,22 +420,16 @@ async def process_speech_utterance(audio_bytes: bytes, client_ws: WebSocket, ses
     if session_state.mode == "WAKING":
         wake_match = re.search(r"\b(hi koda|hi coda|koda|coda|corda)\b", transcript.lower())
         if wake_match:
-            logger.info("Wake word detected! Verifying voice...")
-            is_verified = await verify_voice(session_state)
-            if is_verified:
-                logger.info("Voice verified! Activating Koda.")
-                session_state.mode = "ACTIVE"
-                session_state.last_active_time = time.time()
-                await client_ws.send_json({"type": "status", "state": "listening"})
+            logger.info("Wake word detected and child voice confirmed! Activating Koda.")
+            session_state.mode = "ACTIVE"
+            session_state.last_active_time = time.time()
+            await client_ws.send_json({"type": "status", "state": "listening"})
 
-                remainder = transcript[wake_match.end():].strip()
-                if len(remainder) > 2:
-                    conversation_memory.append({"role": "child", "text": remainder})
-                    await client_ws.send_json({"type": "chat", "role": "child", "text": remainder})
-                    await run_groq_llm_and_cartesia_tts(remainder, client_ws, stt_ms, session_state)
-            else:
-                logger.warning("Voice NOT verified. Ignoring wake word.")
-                await client_ws.send_json({"type": "status", "state": "unrecognized"})
+            remainder = transcript[wake_match.end():].strip()
+            if len(remainder) > 2:
+                conversation_memory.append({"role": "child", "text": remainder})
+                await client_ws.send_json({"type": "chat", "role": "child", "text": remainder})
+                await run_groq_llm_and_cartesia_tts(remainder, client_ws, stt_ms, session_state)
         else:
             logger.info("No wake word found in waking mode.")
     else:
