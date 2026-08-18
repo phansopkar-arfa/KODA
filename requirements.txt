@@ -9,5 +9,6 @@ numpy>=1.24.0
 scipy>=1.11.0
 # soundfile removed to prevent libsndfile.so C library crash
 groq>=0.4.0
+torch
+torchaudio
 onnxruntime>=1.16.0
-torchaudio>=2.11.0

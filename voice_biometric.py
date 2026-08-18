@@ -6,9 +6,13 @@ and continuous voice verification.
 
 import logging
 import numpy as np
-import torch
 import io
 import wave
+
+try:
+    import torch
+except ImportError:
+    torch = None
 
 
 
