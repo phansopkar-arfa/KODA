@@ -115,6 +115,26 @@ vad_detector = SileroVAD()
 # =====================================================================
 # Groq Whisper SST Client (Replacing Parakeet due to gRPC complexity)
 # =====================================================================
+WHISPER_HALLUCINATIONS = {
+    "thank you", "thank you.", "thank you!", "thank you very much.",
+    "bye", "bye.", "bye bye", "goodbye", "goodbye.",
+    "you", "you.", "so", "so.", "a", "the",
+    "subtitles by amara.org", "subtitles by amara.org.",
+    "subtitles by", "thanks for watching", "thanks for watching!",
+    "thank you for watching", "thank you for watching.",
+    "silence", "music", "(sighs)", "(coughing)", "[music]"
+}
+
+
+def clean_whisper_hallucinations(text: str) -> str:
+    cleaned = text.strip()
+    lower = cleaned.lower().strip(".,!?\"'")
+    if lower in WHISPER_HALLUCINATIONS or lower.startswith("subtitles by") or lower.startswith("thanks for watching") or lower.startswith("thank you for watching"):
+        logger.info(f"🧹 Filtered out Whisper silence hallucination: '{text}'")
+        return ""
+    return cleaned
+
+
 async def transcribe_speech(pcm_bytes: bytes) -> str:
     """Send audio to Groq Whisper for extremely fast speech-to-text transcription."""
     if not pcm_bytes:
@@ -131,7 +151,13 @@ async def transcribe_speech(pcm_bytes: bytes) -> str:
 
     headers = {"Authorization": f"Bearer {GROQ_KEY}"}
     files = {"file": ("speech.wav", wav_bytes, "audio/wav")}
-    data = {"model": "whisper-large-v3", "response_format": "json", "language": "en"}
+    data = {
+        "model": "whisper-large-v3",
+        "response_format": "json",
+        "language": "en",
+        "temperature": "0.0",
+        "prompt": "Child speaking to Koda AI companion."
+    }
 
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
 
@@ -140,7 +166,8 @@ async def transcribe_speech(pcm_bytes: bytes) -> str:
             res = await client.post(url, headers=headers, files=files, data=data, timeout=10.0)
             if res.status_code == 200:
                 result = res.json()
-                return result.get("text", "").strip()
+                raw_text = result.get("text", "").strip()
+                return clean_whisper_hallucinations(raw_text)
             else:
                 logger.error(f"Groq Whisper SST failed ({res.status_code}): {res.text}")
     except Exception as e:
