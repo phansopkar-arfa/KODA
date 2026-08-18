@@ -8,7 +8,9 @@ import logging
 import numpy as np
 import torch
 import io
-import soundfile as sf
+import wave
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -129,14 +131,19 @@ def create_embedding(pcm_bytes: bytes, sample_rate: int = 16000) -> list[float]:
 
         # 1. NeMo TitaNet Model
         if hasattr(model, "get_embedding"):
-            # Write temp wav buffer for NeMo
-            with io.BytesIO() as bio:
-                sf.write(bio, wav, sample_rate, format='WAV', subtype='PCM_16')
-                bio.seek(0)
-                embedding = model.get_embedding(bio)
-                if isinstance(embedding, torch.Tensor):
-                    embedding = embedding.detach().cpu().numpy().squeeze()
-                return embedding.tolist()
+            # Write temp wav buffer using standard library wave module
+            bio = io.BytesIO()
+            pcm_int16 = (np.clip(wav, -1.0, 1.0) * 32767).astype(np.int16)
+            with wave.open(bio, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                wf.writeframes(pcm_int16.tobytes())
+            bio.seek(0)
+            embedding = model.get_embedding(bio)
+            if isinstance(embedding, torch.Tensor):
+                embedding = embedding.detach().cpu().numpy().squeeze()
+            return embedding.tolist()
 
         # 2. SpeechBrain Model
         elif hasattr(model, "encode_batch"):
