@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KODA ✨</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="glass-panel">
+            <div class="logo">KODA ✨</div>
+            <div class="subtitle">AI Voice Companion for Kids</div>
+            <a href="/register" class="settings-link" title="Child Profile Settings">⚙️</a>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Voice Orb -->
+            <section class="voice-section">
+                <div class="orb-container">
+                    <div id="voice-orb" class="orb idle"></div>
+                    <div id="volume-indicator">
+                        <div class="volume-bar" id="vol-bar"></div>
+                    </div>
+                </div>
+                <div id="status-label">Tap Start to begin talking!</div>
+                <div class="controls">
+                    <button id="start-btn" class="btn primary">Power On</button>
+                </div>
+            </section>
+
+            <!-- Right Column -->
+            <div class="right-col">
+                <!-- Latency Dashboard -->
+                <section class="latency-dashboard glass-panel">
+                    <h3>⚡ Pipeline Latency</h3>
+                    <div class="bars">
+                        <div class="bar-group">
+                            <span class="label">STT</span>
+                            <div class="bar-track"><div id="bar-stt" class="bar fill-cyan" style="width: 0%"></div></div>
+                            <span id="val-stt" class="val">—</span>
+                        </div>
+                        <div class="bar-group">
+                            <span class="label">LLM</span>
+                            <div class="bar-track"><div id="bar-llm" class="bar fill-violet" style="width: 0%"></div></div>
+                            <span id="val-llm" class="val">—</span>
+                        </div>
+                        <div class="bar-group">
+                            <span class="label">TTS</span>
+                            <div class="bar-track"><div id="bar-tts" class="bar fill-emerald" style="width: 0%"></div></div>
+                            <span id="val-tts" class="val">—</span>
+                        </div>
+                        <div class="bar-group total">
+                            <span class="label">Total</span>
+                            <div class="bar-track"><div id="bar-total" class="bar fill-white" style="width: 0%"></div></div>
+                            <span id="val-total" class="val">—</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Chat Log -->
+                <section class="chat-section glass-panel">
+                    <h3>💬 Conversation</h3>
+                    <div id="chat-log" class="chat-container"></div>
+                    <div id="thinking-area" class="thinking-area hidden">
+                        <span class="typing-indicator"></span>
+                        <span id="interim-text"></span>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

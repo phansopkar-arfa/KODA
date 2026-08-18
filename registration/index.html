@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KODA Setup ✨</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/registration/style.css">
+</head>
+<body>
+    <div class="background-effects">
+        <div class="glow-orb purple"></div>
+        <div class="glow-orb cyan"></div>
+    </div>
+
+    <div class="wizard-container">
+        <header>
+            <h1>KODA Setup ✨</h1>
+            <p>Let's get to know your child</p>
+        </header>
+
+        <div class="progress-bar">
+            <div class="step active" data-step="1">
+                <div class="step-circle">1</div>
+                <span>Personal</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="2">
+                <div class="step-circle">2</div>
+                <span>Personality</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="3">
+                <div class="step-circle">3</div>
+                <span>Health</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="4">
+                <div class="step-circle">4</div>
+                <span>Voice</span>
+            </div>
+        </div>
+
+        <div class="pages-container">
+            <!-- Page 1: Personal Information -->
+            <div class="page active" id="page-1">
+                <div class="form-group">
+                    <label for="child-name">Child's Name *</label>
+                    <input type="text" id="child-name" placeholder="Enter child's name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="child-dob">Date of Birth *</label>
+                    <div class="dob-container">
+                        <input type="date" id="child-dob" required>
+                        <span id="age-display" class="age-display"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="child-pronouns">Gender Pronouns</label>
+                    <select id="child-pronouns">
+                        <option value="" disabled selected>Select pronouns</option>
+                        <option value="he/him">He/Him</option>
+                        <option value="she/her">She/Her</option>
+                        <option value="they/them">They/Them</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <input type="text" id="custom-pronouns" class="hidden mt-2" placeholder="Enter custom pronouns">
+                </div>
+            </div>
+
+            <!-- Page 2: Personality & Profile -->
+            <div class="page" id="page-2">
+                <div class="scroll-container">
+                    <div class="form-group">
+                        <label>Personality Traits</label>
+                        <div class="chip-container" id="chips-personality" data-category="personality">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Likes & Interests</label>
+                        <div class="chip-container" id="chips-interests" data-category="interests">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sibling-info">Sibling Information (Optional)</label>
+                        <textarea id="sibling-info" placeholder="e.g., Older sister Priya, age 10"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Neurodiversity Profile</label>
+                        <div class="chip-container" id="chips-neuro" data-category="neuro">
+                            <!-- Populated by JS -->
+                        </div>
+                        <textarea id="neuro-context" class="mt-2" placeholder="Additional context (optional)"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="speech-goals">Speech Goals (Optional)</label>
+                        <textarea id="speech-goals" placeholder="e.g., Practice R sounds, improve fluency"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Pronunciation Focus</label>
+                        <div class="chip-container" id="chips-pronunciation" data-category="pronunciation">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="additional-notes">Additional Notes</label>
+                        <textarea id="additional-notes" placeholder="Anything else KODA should know?"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page 3: Health & Routine -->
+            <div class="page" id="page-3">
+                <div class="form-group">
+                    <label for="allergies">Allergies & Medical Context</label>
+                    <textarea id="allergies" placeholder="e.g., Peanut allergy, mild asthma" rows="4"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="routines">Daily Routines</label>
+                    <textarea id="routines" placeholder="e.g., School 8am-2pm, nap at 3pm, bedtime 8pm" rows="6"></textarea>
+                </div>
+            </div>
+
+            <!-- Page 4: Voice Registration -->
+            <div class="page" id="page-4">
+                <div class="voice-registration-container">
+                    <p class="instruction">Ask your child to say the following phrase:</p>
+                    <div class="prompt-card">
+                        <p id="voice-prompt">Hi KODA! My name is [name] and I love [interest]!</p>
+                    </div>
+                    
+                    <div class="voice-interaction">
+                        <div class="voice-orb" id="voice-orb">
+                            <span id="countdown" class="countdown hidden">10</span>
+                        </div>
+                        <div class="volume-meter hidden" id="volume-meter">
+                            <div class="volume-fill" id="volume-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="voice-controls">
+                        <button class="btn-record" id="btn-record">Hold to Record</button>
+                    </div>
+
+                    <div id="voice-result" class="voice-result hidden">
+                        <p class="success-text">✅ Voice sample captured!</p>
+                        <div class="action-buttons">
+                            <button id="btn-rerecord" class="btn-nav ghost">Re-record</button>
+                            <button id="btn-confirm-voice" class="btn-nav">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-buttons">
+            <button class="btn-nav ghost hidden" id="btn-back">Back</button>
+            <button class="btn-nav" id="btn-next">Next</button>
+            <button class="btn-nav hidden" id="btn-submit">Create Profile & Start KODA</button>
+        </div>
+    </div>
+
+    <script src="/registration/app.js"></script>
+</body>
+</html>
