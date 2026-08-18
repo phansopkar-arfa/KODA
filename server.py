@@ -115,10 +115,8 @@ vad_detector = SileroVAD()
 # =====================================================================
 # Groq Whisper SST Client (Replacing Parakeet due to gRPC complexity)
 # =====================================================================
-WHISPER_HALLUCINATIONS = {
-    "thank you", "thank you.", "thank you!", "thank you very much.",
-    "bye", "bye.", "bye bye", "goodbye", "goodbye.",
-    "you", "you.", "so", "so.", "a", "the",
+# Only filter out non-speech subtitle tags (never real child words like "thank you", "bye", "love you")
+WHISPER_SUBTITLE_TAGS = {
     "subtitles by amara.org", "subtitles by amara.org.",
     "subtitles by", "thanks for watching", "thanks for watching!",
     "thank you for watching", "thank you for watching.",
@@ -126,18 +124,29 @@ WHISPER_HALLUCINATIONS = {
 }
 
 
+def is_real_audio_speech(pcm_bytes: bytes, min_rms: float = 300.0) -> bool:
+    """Checks if audio buffer has actual audio energy (speech) rather than ambient silence."""
+    if not pcm_bytes or len(pcm_bytes) < 3200:  # Less than 0.1s
+        return False
+    import numpy as np
+    audio = np.frombuffer(pcm_bytes, dtype=np.int16)
+    rms = np.sqrt(np.mean(audio.astype(np.float32)**2))
+    return rms >= min_rms
+
+
 def clean_whisper_hallucinations(text: str) -> str:
     cleaned = text.strip()
     lower = cleaned.lower().strip(".,!?\"'")
-    if lower in WHISPER_HALLUCINATIONS or lower.startswith("subtitles by") or lower.startswith("thanks for watching") or lower.startswith("thank you for watching"):
-        logger.info(f"🧹 Filtered out Whisper silence hallucination: '{text}'")
+    if lower in WHISPER_SUBTITLE_TAGS or lower.startswith("subtitles by") or lower.startswith("thanks for watching") or lower.startswith("thank you for watching"):
+        logger.info(f"🧹 Filtered out non-speech subtitle tag: '{text}'")
         return ""
     return cleaned
 
 
 async def transcribe_speech(pcm_bytes: bytes) -> str:
     """Send audio to Groq Whisper for extremely fast speech-to-text transcription."""
-    if not pcm_bytes:
+    if not pcm_bytes or not is_real_audio_speech(pcm_bytes):
+        logger.info("Silence/ambient noise detected. Skipping STT.")
         return ""
     
     # Create WAV in-memory
