@@ -74,7 +74,7 @@ function loadExistingProfile() {
                 hasExistingVoice = true;
                 btnSubmit.disabled = false;
                 const btnRecord = document.getElementById('btn-record');
-                btnRecord.innerText = 'Hold to Re-record Voice';
+                btnRecord.innerText = 'Click to Re-record Voice';
             }
         })
         .catch(err => console.log('No existing profile to load'));
@@ -189,11 +189,12 @@ function setupEventListeners() {
     document.getElementById('btn-submit').addEventListener('click', submitProfile);
 
     const recordBtn = document.getElementById('btn-record');
-    recordBtn.addEventListener('mousedown', startRecording);
-    recordBtn.addEventListener('mouseup', stopRecording);
-    recordBtn.addEventListener('mouseleave', stopRecording);
-    recordBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
-    recordBtn.addEventListener('touchend', stopRecording);
+    recordBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!recordingInterval) {
+            startRecording();
+        }
+    });
     
     document.getElementById('btn-rerecord').addEventListener('click', resetVoiceUI);
     document.getElementById('btn-confirm-voice').addEventListener('click', confirmVoice);
@@ -372,7 +373,7 @@ function stopRecording() {
     countdown.classList.add('hidden');
     meter.classList.add('hidden');
     btn.classList.remove('recording');
-    btn.innerText = hasExistingVoice ? 'Hold to Re-record Voice' : 'Hold to Record';
+    btn.innerText = hasExistingVoice ? 'Click to Re-record Voice' : 'Click to Record';
     
     if (pcmData.length > 0) {
         const buffer = new Int16Array(pcmData);
