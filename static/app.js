@@ -195,7 +195,9 @@ function schedulePlayback() {
 // --- WebSocket ---
 function connectWebSocket() {
     return new Promise((resolve, reject) => {
-        ws = new WebSocket('ws://localhost:8000/ws/conversation');
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/conversation`;
+        ws = new WebSocket(wsUrl);
         ws.binaryType = 'arraybuffer';
         ws.onopen = () => resolve();
         ws.onerror = (e) => reject(e);
